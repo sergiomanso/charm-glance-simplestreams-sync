@@ -83,7 +83,7 @@ PACKAGES = ['python-simplestreams', 'python-glanceclient',
 
 PY3_PACKAGES = ['python3-simplestreams', 'python3-glanceclient',
                 'python3-yaml', 'python3-keystoneclient',
-                'python3-kombu',
+                'python3-pika',
                 'python3-swiftclient']
 
 hooks = hookenv.Hooks()
@@ -110,6 +110,7 @@ class SSLIdentityServiceContext(IdentityServiceContext):
     def __call__(self):
         ctxt = super(SSLIdentityServiceContext, self).__call__()
         ssl_ca = hookenv.config('ssl_ca')
+        hookenv.log(ssl_ca)
         if ctxt and ssl_ca:
             ctxt['ssl_ca'] = ssl_ca
         return ctxt
@@ -191,8 +192,15 @@ def install_cron_script():
     up-to-date.
 
     """
-    for fn in [SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
-        shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
+    if CompareHostReleases(lsb_release()['DISTRIB_CODENAME']) > 'bionic':
+        _SYNC_SCRIPT_NAME = SYNC_SCRIPT_NAME.replace(".py","-py3.py")
+        for fn in [_SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
+            shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
+        os.rename(os.path.join(USR_SHARE_DIR, _SYNC_SCRIPT_NAME),
+                  SYNC_SCRIPT_NAME)
+    else:    
+        for fn in [SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
+            shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
 
     config = hookenv.config()
     installed_script = os.path.join(USR_SHARE_DIR, SCRIPT_WRAPPER_NAME)
@@ -324,6 +332,7 @@ def upgrade_charm():
     configs = get_configs()
     configs.write_all()
     ensure_perms()
+    
 
 
 @hooks.hook('amqp-relation-joined')

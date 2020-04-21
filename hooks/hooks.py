@@ -195,7 +195,7 @@ def install_cron_script():
         for fn in [_SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
             shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
         os.rename(os.path.join(USR_SHARE_DIR, _SYNC_SCRIPT_NAME),
-                  os.path.join(USR_SHARE_DIR, SYNC_SCRIPT_NAME))
+                  SYNC_SCRIPT_NAME)
     else:    
         for fn in [SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
             shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)

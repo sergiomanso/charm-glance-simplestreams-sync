@@ -483,14 +483,13 @@ class StatusExchange:
             self.conn = pika.BlockingConnection(params)
             self.exchange = 'glance-simplestreams-sync-status'
             queue = 'glance-simplestreams-sync-status'
-            self.channel = self.conn.channel()
+
             self.channel.queue_declare(queue=queue, durable='false')
-            self.channel.exchange_declare(self.exchange)
             self.channel.queue_bind(exchange=self.exchange,
                                 queue=queue)
 
         except:
-            log.exception("Exception during pika setup")
+            log.exception("Exception during kombu setup")
             return False
 
         return True
@@ -500,9 +499,7 @@ class StatusExchange:
             log.warning("No rabbitmq connection available for msg"
                         "{}. Message will be lost.".format(str(msg)))
             return
-        self.channel.basic_publish(exchange=self.exchange,
-                                    routing_key='',
-                                    body=msg)
+        self.channel.basic_publish(exchange=self.exchange, body=msg)
 
     def close(self):
         if self.conn:

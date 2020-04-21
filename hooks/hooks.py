@@ -55,6 +55,13 @@ from charmhelpers.contrib.openstack.cert_utils import (
     process_certificates,
 )
 
+from charmhelpers.core.host import (
+    CompareHostReleases,
+    lsb_release,
+)
+
+from jinja2 import Template, Environment, FileSystemLoader
+
 CONF_FILE_DIR = '/etc/glance-simplestreams-sync'
 USR_SHARE_DIR = '/usr/share/glance-simplestreams-sync'
 
@@ -62,6 +69,7 @@ MIRRORS_CONF_FILE_NAME = os.path.join(CONF_FILE_DIR, 'mirrors.yaml')
 ID_CONF_FILE_NAME = os.path.join(CONF_FILE_DIR, 'identity.yaml')
 
 SYNC_SCRIPT_NAME = "glance-simplestreams-sync.py"
+SYNC_SCRIPT_TEMPLATE_NAME = "glance-simplestreams-sync.py.j2"
 SCRIPT_WRAPPER_NAME = "glance-simplestreams-sync.sh"
 
 CRON_D = '/etc/cron.d/'
@@ -76,14 +84,11 @@ PACKAGES = ['python-simplestreams', 'python-glanceclient',
             'python-kombu',
             'python-swiftclient', 'ubuntu-cloudimage-keyring']
 
-<<<<<<< HEAD
 PY3_PACKAGES = ['python3-simplestreams', 'python3-glanceclient',
                 'python3-yaml', 'python3-keystoneclient',
-                'python3-pika',
+                'python3-kombu',
                 'python3-swiftclient']
 
-=======
->>>>>>> parent of fa81da8... bugfix + bundle
 hooks = hookenv.Hooks()
 
 
@@ -186,19 +191,27 @@ def get_configs():
 def install_cron_script():
     """Installs cron job in /etc/cron.$frequency/ for repeating sync
 
-    Script is not a template but we always overwrite, to ensure it is
-    up-to-date.
+    Script is generated from a template based on the ubuntu release.
+    It always overwrited, to ensure it is up-to-date.
 
     """
+    env = Environment(loader=FileSystemLoader("files"),
+                    trim_blocks=True)
+    template = env.get_template(SYNC_SCRIPT_TEMPLATE_NAME)
+
     if CompareHostReleases(lsb_release()['DISTRIB_CODENAME']) > 'bionic':
-        _SYNC_SCRIPT_NAME = SYNC_SCRIPT_NAME.replace(".py","-py3.py")
-        for fn in [_SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
-            shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
-        os.rename(os.path.join(USR_SHARE_DIR, _SYNC_SCRIPT_NAME),
-                  SYNC_SCRIPT_NAME)
-    else:    
-        for fn in [SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
-            shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
+        rendered_script = template.stream(python="python3")
+    else:
+        rendered_script = template.stream(python="python")
+
+    try:
+        script_path = os.path.join(USR_SHARE_DIR, SYNC_SCRIPT_NAME)
+        rendered_script.dump(script_path)
+        os.chmod(script_path, 0o755)
+    except:
+        hookenv.log("Exception on installing rendered script")
+
+    shutil.copy(os.path.join("files", SCRIPT_WRAPPER_NAME), USR_SHARE_DIR)
 
     config = hookenv.config()
     installed_script = os.path.join(USR_SHARE_DIR, SCRIPT_WRAPPER_NAME)
@@ -281,6 +294,10 @@ def install():
         hookenv.log('Configuring for local hosting of product stream.')
         _packages += ["apache2"]
 
+    if CompareHostReleases(lsb_release()['DISTRIB_CODENAME']) > 'bionic':
+        _packages = [pkg for pkg in _packages if not pkg.startswith('python-')]
+        _packages.extend(PY3_PACKAGES)
+    
     apt_update(fatal=True)
 
     apt_install(_packages)

@@ -1,0 +1,74 @@
+#series: focal
+
+comment:
+  - 'machines section to decide order of deployment. database sooner = faster'
+
+machines:
+  '0':
+    series: eoan
+    constraints: mem=3072M
+  '1':
+    series: focal
+  '2':
+    series: eoan
+  '3':
+    series: focal
+  '4':
+    series: focal
+  '5':
+    series: focal
+relations:
+  - ['vault:shared-db', 'mysql:shared-db']
+  - ['keystone:shared-db', 'mysql:shared-db']
+  - ['glance:shared-db', 'mysql:shared-db']
+  - ['glance:amqp', 'rabbitmq-server:amqp']
+  - ['glance-simplestreams-sync:amqp', 'rabbitmq-server:amqp']
+  - ['keystone:certificates', 'vault:certificates']
+  - ['glance:certificates', 'vault:certificates']
+  - ['glance-simplestreams-sync:certificates', 'vault:certificates']
+  - ['glance:identity-service', 'keystone:identity-service']
+  - ['glance-simplestreams-sync:identity-service', 'keystone:identity-service']
+
+applications:
+  mysql:
+    series: eoan
+    charm: cs:~openstack-charmers-next/percona-cluster
+    num_units: 1
+    to:
+      - '0'
+  rabbitmq-server:
+    series: focal
+    charm: cs:~openstack-charmers-next/rabbitmq-server
+    num_units: 1
+    options:
+      ssl: 'on'  # must be str(in quote), otherwise it's bool
+    to:
+      - '1'
+  vault:
+    series: eoan
+    charm: cs:~openstack-charmers/vault
+    num_units: 1
+    to:
+      - '2'
+  keystone:
+    series: focal
+    charm: cs:~openstack-charmers-next/keystone
+    num_units: 1
+    to:
+      - '3'
+  glance:
+    series: focal
+    charm: cs:~openstack-charmers-next/glance
+    num_units: 1
+    to:
+      - '4'
+  glance-simplestreams-sync:
+    series: focal
+    charm: ../../glance-simplestreams-sync
+    num_units: 1
+    options:
+      source: ppa:simplestreams-dev/trunk
+      use_swift: False
+    to:
+      - '5'
+

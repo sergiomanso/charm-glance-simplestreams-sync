@@ -12,6 +12,7 @@ series:
   - xenial
   - bionic
   - eoan
+  - focal
 subordinate: false
 provides:
   simplestreams-image-service:

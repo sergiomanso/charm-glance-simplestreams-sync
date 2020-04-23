@@ -60,8 +60,6 @@ from charmhelpers.core.host import (
     lsb_release,
 )
 
-from jinja2 import Template, Environment, FileSystemLoader
-
 CONF_FILE_DIR = '/etc/glance-simplestreams-sync'
 USR_SHARE_DIR = '/usr/share/glance-simplestreams-sync'
 
@@ -69,7 +67,6 @@ MIRRORS_CONF_FILE_NAME = os.path.join(CONF_FILE_DIR, 'mirrors.yaml')
 ID_CONF_FILE_NAME = os.path.join(CONF_FILE_DIR, 'identity.yaml')
 
 SYNC_SCRIPT_NAME = "glance-simplestreams-sync.py"
-SYNC_SCRIPT_TEMPLATE_NAME = "glance-simplestreams-sync.py.j2"
 SCRIPT_WRAPPER_NAME = "glance-simplestreams-sync.sh"
 
 CRON_D = '/etc/cron.d/'
@@ -106,14 +103,12 @@ class UnitNameContext(OSContextGenerator):
 
 class SSLIdentityServiceContext(IdentityServiceContext):
     """Modify the IdentityServiceContext to includea an SSL option.
-
     This is just a simple way of getting the CA to the
     glance-simplestreams-sync.py script.
     """
     def __call__(self):
         ctxt = super(SSLIdentityServiceContext, self).__call__()
         ssl_ca = hookenv.config('ssl_ca')
-        hookenv.log(ssl_ca)
         if ctxt and ssl_ca:
             ctxt['ssl_ca'] = ssl_ca
         return ctxt
@@ -121,10 +116,8 @@ class SSLIdentityServiceContext(IdentityServiceContext):
 
 class MirrorsConfigServiceContext(OSContextGenerator):
     """Context for mirrors.yaml template.
-
     Uses image-modifier relation if available to set
     modify_hook_scripts config value.
-
     """
     interfaces = ['simplestreams-image-service']
 
@@ -190,28 +183,11 @@ def get_configs():
 
 def install_cron_script():
     """Installs cron job in /etc/cron.$frequency/ for repeating sync
-
-    Script is generated from a template based on the ubuntu release.
-    It always overwrited, to ensure it is up-to-date.
-
+    Script is not a template but we always overwrite, to ensure it is
+    up-to-date.
     """
-    env = Environment(loader=FileSystemLoader("files"),
-                    trim_blocks=True)
-    template = env.get_template(SYNC_SCRIPT_TEMPLATE_NAME)
-
-    if CompareHostReleases(lsb_release()['DISTRIB_CODENAME']) > 'bionic':
-        rendered_script = template.stream(python="python3")
-    else:
-        rendered_script = template.stream(python="python")
-
-    try:
-        script_path = os.path.join(USR_SHARE_DIR, SYNC_SCRIPT_NAME)
-        rendered_script.dump(script_path)
-        os.chmod(script_path, 0o755)
-    except:
-        hookenv.log("Exception on installing rendered script")
-
-    shutil.copy(os.path.join("files", SCRIPT_WRAPPER_NAME), USR_SHARE_DIR)
+    for fn in [SYNC_SCRIPT_NAME, SCRIPT_WRAPPER_NAME]:
+        shutil.copy(os.path.join("files", fn), USR_SHARE_DIR)
 
     config = hookenv.config()
     installed_script = os.path.join(USR_SHARE_DIR, SCRIPT_WRAPPER_NAME)
@@ -297,7 +273,7 @@ def install():
     if CompareHostReleases(lsb_release()['DISTRIB_CODENAME']) > 'bionic':
         _packages = [pkg for pkg in _packages if not pkg.startswith('python-')]
         _packages.extend(PY3_PACKAGES)
-    
+
     apt_update(fatal=True)
 
     apt_install(_packages)
@@ -343,7 +319,6 @@ def upgrade_charm():
     configs = get_configs()
     configs.write_all()
     ensure_perms()
-    
 
 
 @hooks.hook('amqp-relation-joined')

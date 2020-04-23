@@ -1,74 +1,74 @@
-#series: focal
+series: focal
 
 comment:
   - 'machines section to decide order of deployment. database sooner = faster'
 
 machines:
   '0':
-    series: eoan
-    constraints: mem=3072M
   '1':
-    series: focal
   '2':
-    series: eoan
   '3':
-    series: focal
   '4':
-    series: focal
   '5':
-    series: focal
+  '6':
+  '7':
 relations:
-  - ['vault:shared-db', 'mysql:shared-db']
-  - ['keystone:shared-db', 'mysql:shared-db']
-  - ['glance:shared-db', 'mysql:shared-db']
   - ['glance:amqp', 'rabbitmq-server:amqp']
   - ['glance-simplestreams-sync:amqp', 'rabbitmq-server:amqp']
   - ['keystone:certificates', 'vault:certificates']
   - ['glance:certificates', 'vault:certificates']
+  - ['rabbitmq-server:certificates', 'vault:certificates']
   - ['glance-simplestreams-sync:certificates', 'vault:certificates']
   - ['glance:identity-service', 'keystone:identity-service']
   - ['glance-simplestreams-sync:identity-service', 'keystone:identity-service']
-
+  - ['keystone:shared-db','keystone-mysql-router:shared-db']
+  - ['glance:shared-db','glance-mysql-router:shared-db']
+  - ['vault:shared-db','vault-mysql-router:shared-db']
+  - ['keystone-mysql-router:db-router','mysql-innodb-cluster:db-router']
+  - ['glance-mysql-router:db-router','mysql-innodb-cluster:db-router']
+  - ['vault-mysql-router:db-router','mysql-innodb-cluster:db-router']
 applications:
-  mysql:
-    series: eoan
-    charm: cs:~openstack-charmers-next/percona-cluster
-    num_units: 1
+  keystone-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  glance-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  vault-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  mysql-innodb-cluster:
+    charm: cs:~openstack-charmers-next/mysql-innodb-cluster
+    num_units: 3
     to:
       - '0'
+      - '1'
+      - '2'
   rabbitmq-server:
-    series: focal
     charm: cs:~openstack-charmers-next/rabbitmq-server
     num_units: 1
     options:
       ssl: 'on'  # must be str(in quote), otherwise it's bool
     to:
-      - '1'
-  vault:
-    series: eoan
-    charm: cs:~openstack-charmers/vault
-    num_units: 1
-    to:
-      - '2'
-  keystone:
-    series: focal
-    charm: cs:~openstack-charmers-next/keystone
-    num_units: 1
-    to:
       - '3'
-  glance:
-    series: focal
-    charm: cs:~openstack-charmers-next/glance
+  vault:
+    charm: cs:~openstack-charmers-next/vault
     num_units: 1
     to:
       - '4'
+  keystone:
+    charm: cs:~openstack-charmers-next/keystone
+    num_units: 1
+    to:
+      - '5'
+  glance:
+    charm: cs:~openstack-charmers-next/glance
+    num_units: 1
+    to:
+      - '6'
   glance-simplestreams-sync:
-    series: focal
     charm: ../../glance-simplestreams-sync
     num_units: 1
     options:
       source: ppa:simplestreams-dev/trunk
       use_swift: False
     to:
-      - '5'
+      - '7'
 

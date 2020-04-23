@@ -6,4 +6,13 @@ elif [ -f /etc/juju-proxy.conf ]; then
 elif [ -f /home/ubuntu/.juju-proxy ]; then
     source /home/ubuntu/.juju-proxy
 fi
-exec /usr/share/glance-simplestreams-sync/glance-simplestreams-sync.py
+
+source /etc/lsb-release
+if (( $(echo "$DISTRIB_RELEASE > 18.04" | bc -l) ));
+then
+    PYTHON=python3
+else
+    PYTHON=python
+fi
+
+$PYTHON /usr/share/glance-simplestreams-sync/glance-simplestreams-sync.py
